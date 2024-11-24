@@ -16,7 +16,7 @@ program.parse(process.argv);
 const options = program.opts();
 const lab5 = express();
 lab5.use(express.json());
-
+lab5.use(express.urlencoded({ extended: true })); // Додаємо middleware для розбору параметрів у вигляді key=value
 
 lab5.get('/notes/:note_name', (req, res) => {
   const path_to_note = path.join(options.cache, `${req.params.note_name}.txt`);
@@ -63,17 +63,33 @@ lab5.get('/notes', (req, res) => {
 });
 
 lab5.post('/write', mlt.none(), (req, res) => {
+    // Перевіряємо, чи параметр note_name та note є в тілі запиту
+    if (!req.body.note_name || !req.body.note) {
+        return res.status(400).send('Bad request. note_name and note are required.');
+    }
+
     const path_to_note = path.join(options.cache, `${req.body.note_name}.txt`);
+
     fs.access(path_to_note, fs.constants.F_OK, (err) => {
-      if (!err) {
-        return res.status(400).send('Bad request');
-      }
-      fs.writeFile(path_to_note, req.body.note, (err) => {
-        if (err) throw err;
-        res.status(201).send('Created');
-      });
+        if (!err) {
+            return res.status(400).send('Bad request. File already exists.');
+        }
+
+        // Перевіряємо, чи не є параметр note undefined або порожнім
+        if (!req.body.note) {
+            return res.status(400).send('Bad request. Note text is missing.');
+        }
+
+        // Записуємо текст нотатки у файл
+        fs.writeFile(path_to_note, req.body.note, (err) => {
+            if (err) {
+                return res.status(500).send('Error writing file');
+            }
+            res.status(201).send('Created');
+        });
     });
 });
+
 
 lab5.get('/UploadForm.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'UploadForm.html'));
